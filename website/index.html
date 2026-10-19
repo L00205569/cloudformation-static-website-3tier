@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="CloudFormation lab: static website hosted with Amazon S3 and CloudFront.">
+  <title>CloudFormation Lab | Static Website</title>
+  <link rel="stylesheet" href="/css/style.css">
+  <script src="/js/script.js" defer></script>
+</head>
+<body>
+  <!-- Replace both identity placeholders before publishing or submitting. -->
+  <header class="site-header">
+    <p class="eyebrow">CloudFormation Lab</p>
+    <h1>PATRICK AFFADU <span aria-hidden="true">·</span> L00205569</h1>
+    <p class="subtitle">A static website delivered from Amazon S3 through Amazon CloudFront</p>
+  </header>
+
+  <!-- These sections explain the storage and delivery choices used by the lab. -->
+  <main>
+    <section class="card" aria-labelledby="about-heading">
+      <p class="eyebrow">Part A · Static site</p>
+      <h2 id="about-heading">Infrastructure as code</h2>
+      <p>This page is a static asset stored in an S3 bucket. CloudFront serves it to visitors while the bucket remains private.</p>
+      <a class="button" href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/Welcome.html" target="_blank" rel="noreferrer">Explore CloudFormation <span aria-hidden="true">↗</span></a>
+    </section>
+
+    <section class="grid" aria-label="Lab concepts">
+      <article class="card">
+        <span class="number" aria-hidden="true">01</span>
+        <h2>Object storage</h2>
+        <p>HTML, CSS, JavaScript, and error content are uploaded as objects to Amazon S3.</p>
+      </article>
+      <article class="card">
+        <span class="number" aria-hidden="true">02</span>
+        <h2>Content delivery</h2>
+        <p>Amazon CloudFront provides the public endpoint and reads from the protected origin.</p>
+      </article>
+      <article class="card">
+        <span class="number" aria-hidden="true">03</span>
+        <h2>Repeatable setup</h2>
+        <p>CloudFormation describes the infrastructure so it can be reviewed and recreated.</p>
+      </article>
+    </section>
+
+    <p class="status" id="status" role="status">Page loaded successfully.</p>
+  </main>
+
+  <!-- Keep the reminder visible while the page is still a personal draft. -->
+  <footer><p>Student lab sample · Update the name and L-number before submission.</p></footer>
+</body>
+</html>
