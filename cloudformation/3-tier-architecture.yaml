@@ -1,0 +1,61 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Three-tier web, application, and database architecture; database password comes from an SSM SecureString parameter.
+Parameters:
+  ProjectName:
+    Type: String
+    Default: 3-tier-app
+    MinLength: 3
+    MaxLength: 32
+    AllowedPattern: '^[a-zA-Z][a-zA-Z0-9-]*$'
+    Description: Name prefix used for resource tags.
+  VpcCidr:
+    Type: String
+    Default: 10.20.0.0/16
+    Description: Private IPv4 address range for the VPC.
+  PublicSubnet1Cidr:
+    Type: String
+    Default: 10.20.1.0/24
+  PublicSubnet2Cidr:
+    Type: String
+    Default: 10.20.2.0/24
+  WebSubnet1Cidr:
+    Type: String
+    Default: 10.20.11.0/24
+  WebSubnet2Cidr:
+    Type: String
+    Default: 10.20.12.0/24
+  ApplicationSubnet1Cidr:
+    Type: String
+    Default: 10.20.13.0/24
+  ApplicationSubnet2Cidr:
+    Type: String
+    Default: 10.20.14.0/24
+  DatabaseSubnet1Cidr:
+    Type: String
+    Default: 10.20.21.0/24
+  DatabaseSubnet2Cidr:
+    Type: String
+    Default: 10.20.22.0/24
+  InstanceType:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /myapp/ec2/instance-type
+  DBUsername:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cloudformation-lab/3-tier-app/database/username
+    Description: RDS master username retrieved from Parameter Store.
+  DBPasswordParameterVersion:
+    Type: Number
+    Default: 1
+    MinValue: 1
+    Description: Version of the SecureString to use; increment this when rotating the database password.
+  DBInstanceClass:
+    Type: AWS::SSM::Parameter::Value<String>
+    Default: /cloudformation-lab/3-tier-app/database/instance-class
+    Description: RDS instance class retrieved from Parameter Store.
+  DBAllocatedStorage:
+    Type: Number
+    Default: 20
+    MinValue: 20
+    MaxValue: 100
+
+Resources:
