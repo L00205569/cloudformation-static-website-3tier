@@ -1,0 +1,212 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: EC2 instance running the Flask application API.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: student-three-tier
+
+  LatestAmiId:
+    Type: AWS::SSM::Parameter::Value<AWS::EC2::Image::Id>
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+
+  PublicSubnetId:
+    Type: AWS::EC2::Subnet::Id
+
+  ApiSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  DatabaseEndpoint:
+    Type: String
+
+  DBPasswordParameterName:
+    Type: String
+    Description: Name of the SSM SecureString parameter containing the database password.
+
+Resources:
+  ApiInstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service:
+                - ec2.amazonaws.com
+            Action:
+              - sts:AssumeRole
+
+      ManagedPolicyArns:
+        - !Sub 'arn:${AWS::Partition}:iam::aws:policy/AmazonSSMManagedInstanceCore'
+
+      Policies:
+        - PolicyName: ReadDatabasePassword
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - ssm:GetParameter
+                Resource: !Sub
+                  - 'arn:${AWS::Partition}:ssm:${AWS::Region}:${AWS::AccountId}:parameter${ParameterPath}'
+                  - ParameterPath: !Ref DBPasswordParameterName
+
+  ApiInstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref ApiInstanceRole
+
+  ApiInstance:
+    Type: AWS::EC2::Instance
+    Properties:
+      ImageId: !Ref LatestAmiId
+      InstanceType: t3.micro
+      SubnetId: !Ref PublicSubnetId
+      SecurityGroupIds:
+        - !Ref ApiSecurityGroupId
+      IamInstanceProfile: !Ref ApiInstanceProfile
+
+      MetadataOptions:
+        HttpTokens: required
+
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-api'
+
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          set -euxo pipefail
+
+          dnf install -y python3 python3-pip awscli amazon-ssm-agent
+
+          systemctl enable --now amazon-ssm-agent
+
+          mkdir -p /opt/three-tier
+          python3 -m venv /opt/three-tier/venv
+
+          /opt/three-tier/venv/bin/pip install \
+            Flask==3.1.1 \
+            PyMySQL==1.1.1 \
+            gunicorn==23.0.0 \
+            cryptography==44.0.3
+
+          cat > /opt/three-tier/app.py <<'PYCODE'
+          import os
+          import pymysql
+          from flask import Flask, jsonify, request
+
+          app = Flask(__name__)
+
+          def connection():
+              return pymysql.connect(
+                  host=os.environ['DB_HOST'],
+                  user='appadmin',
+                  password=os.environ['DB_PASSWORD'],
+                  database='labdb',
+                  connect_timeout=5,
+                  cursorclass=pymysql.cursors.DictCursor
+              )
+
+          def ensure_table(db):
+              with db.cursor() as cursor:
+                  cursor.execute(
+                      'CREATE TABLE IF NOT EXISTS messages '
+                      '(id INT AUTO_INCREMENT PRIMARY KEY, '
+                      'name VARCHAR(100) NOT NULL, '
+                      'message VARCHAR(500) NOT NULL)'
+                  )
+
+          @app.get('/health')
+          def health():
+              return jsonify(status='ok')
+
+          @app.get('/api/messages')
+          def messages():
+              with connection() as db:
+                  ensure_table(db)
+                  with db.cursor() as cursor:
+                      cursor.execute(
+                          'SELECT id, name, message FROM messages '
+                          'ORDER BY id DESC LIMIT 20'
+                      )
+                      return jsonify(cursor.fetchall())
+
+          @app.post('/api/messages')
+          def add_message():
+              data = request.get_json(silent=True) or {}
+              name = str(data.get('name', '')).strip()
+              message = str(data.get('message', '')).strip()
+
+              if not name or not message or len(name) > 100 or len(message) > 500:
+                  return jsonify(
+                      error='Name and message are required (max 100/500 characters)'
+                  ), 400
+
+              with connection() as db:
+                  ensure_table(db)
+                  with db.cursor() as cursor:
+                      cursor.execute(
+                          'INSERT INTO messages (name, message) VALUES (%s, %s)',
+                          (name, message)
+                      )
+                  db.commit()
+
+              return jsonify(status='saved'), 201
+          PYCODE
+
+          DB_PASSWORD_PARAMETER_NAME='${DBPasswordParameterName}'
+
+          DB_PASSWORD="$(aws ssm get-parameter \
+            --name "$DB_PASSWORD_PARAMETER_NAME" \
+            --with-decryption \
+            --query 'Parameter.Value' \
+            --output text \
+            --region '${AWS::Region}')"
+
+          cat > /etc/three-tier.env <<ENVFILE
+          DB_HOST=${DatabaseEndpoint}
+          DB_PASSWORD=$DB_PASSWORD
+          ENVFILE
+
+          chmod 600 /etc/three-tier.env
+          unset DB_PASSWORD
+
+          cat > /etc/systemd/system/three-tier.service <<'UNIT'
+          [Unit]
+          Description=Three-tier Flask lab API
+          After=network-online.target
+          Wants=network-online.target
+
+          [Service]
+          WorkingDirectory=/opt/three-tier
+          EnvironmentFile=/etc/three-tier.env
+          ExecStart=/opt/three-tier/venv/bin/gunicorn --bind 0.0.0.0:5000 --workers 2 app:app
+          Restart=always
+          RestartSec=5
+          User=nobody
+          Group=nobody
+
+          [Install]
+          WantedBy=multi-user.target
+          UNIT
+
+          systemctl daemon-reload
+          systemctl enable --now three-tier
+
+Outputs:
+  ApiInstanceId:
+    Description: EC2 instance ID for Session Manager access.
+    Value: !Ref ApiInstance
+
+  ApiOriginDnsName:
+    Description: Public DNS name of the API instance.
+    Value: !GetAtt ApiInstance.PublicDnsName
+
+  ApiURL:
+    Description: URL of the Flask API.
+    Value: !Sub 'http://${ApiInstance.PublicDnsName}:5000'
+

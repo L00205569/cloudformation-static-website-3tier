@@ -1,0 +1,41 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Security groups for the three-tier classroom application.
+Parameters:
+  ProjectName:
+    Type: String
+    Default: student-three-tier
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+Resources:
+  ApiSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Classroom Flask API ingress.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 5000
+          ToPort: 5000
+          CidrIp: 0.0.0.0/0
+          Description: Lab API access; restrict before production use.
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-api-sg'
+  DatabaseSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: MySQL access only from the API security group.
+      VpcId: !Ref VpcId
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 3306
+          ToPort: 3306
+          SourceSecurityGroupId: !Ref ApiSecurityGroup
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-database-sg'
+Outputs:
+  ApiSecurityGroupId:
+    Value: !Ref ApiSecurityGroup
+  DatabaseSecurityGroupId:
+    Value: !Ref DatabaseSecurityGroup

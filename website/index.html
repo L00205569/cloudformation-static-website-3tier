@@ -1,52 +1,755 @@
+
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="description" content="CloudFormation lab: static website hosted with Amazon S3 and CloudFront.">
-  <title>CloudFormation Lab | Static Website</title>
-  <link rel="stylesheet" href="/css/style.css">
-  <script src="/js/script.js" defer></script>
+  <meta name="theme-color" content="#0b2c55">
+  <meta name="description" content="Three-Tier Message Board, a cloud application built with AWS VPC, S3, CloudFront, EC2 and RDS MySQL.">
+  <title>Three-Tier Message Board | AWS Cloud Project</title>
+
+  <style>
+    :root {
+      --navy: #08264b;
+      --blue: #1674df;
+      --blue-dark: #0b55b1;
+      --text: #172b49;
+      --muted: #62728a;
+      --border: #dce5f0;
+      --surface: #ffffff;
+      --green: #16803d;
+      --shadow: 0 12px 34px rgba(9, 38, 75, .12);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system,
+        BlinkMacSystemFont, "Segoe UI", sans-serif;
+      color: var(--text);
+      background: #edf4fc;
+      line-height: 1.55;
+    }
+
+    a { color: inherit; }
+
+    .site-header {
+      background: rgba(255, 255, 255, .97);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .header-inner {
+      max-width: 1440px;
+      margin: auto;
+      padding: 20px 5%;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 15px;
+      min-width: 0;
+    }
+
+    .brand-cloud {
+      font-size: 42px;
+      line-height: 1;
+    }
+
+    .brand h1 {
+      margin: 0;
+      color: var(--navy);
+      font-size: clamp(1.35rem, 3vw, 2rem);
+      letter-spacing: -.04em;
+      line-height: 1.2;
+    }
+
+    .brand p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: .94rem;
+    }
+
+    .student-badge {
+      flex-shrink: 0;
+      padding: 11px 16px;
+      border-radius: 12px;
+      background: #e6f1ff;
+      color: var(--navy);
+      font-weight: 750;
+      font-size: .92rem;
+    }
+
+    .nav {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      padding: 0 5%;
+      border-top: 1px solid #edf1f6;
+      overflow-x: auto;
+    }
+
+    .nav a {
+      text-decoration: none;
+      padding: 13px 19px;
+      color: #254568;
+      white-space: nowrap;
+      font-size: .92rem;
+      font-weight: 650;
+    }
+
+    .nav a:hover, .nav a:focus-visible {
+      color: var(--blue);
+      background: #eff6ff;
+      outline: none;
+    }
+
+    .hero {
+      position: relative;
+      isolation: isolate;
+      color: white;
+      padding: 48px 5% 70px;
+      background:
+        linear-gradient(105deg, rgba(5, 43, 91, .91), rgba(22, 99, 177, .55)),
+        url("https://images.unsplash.com/photo-1470770841072-f978cf4d019e?auto=format&fit=crop&w=2000&q=85")
+        center 48% / cover;
+    }
+
+    .hero-inner {
+      max-width: 1320px;
+      margin: auto;
+      display: grid;
+      grid-template-columns: 1.25fr .75fr;
+      align-items: center;
+      gap: 36px;
+    }
+
+    .hero h2 {
+      max-width: 800px;
+      margin: 0 0 12px;
+      font-size: clamp(2rem, 4vw, 3.2rem);
+      letter-spacing: -.04em;
+      line-height: 1.1;
+    }
+
+    .hero .lead {
+      margin: 0 0 15px;
+      font-size: clamp(1.05rem, 2vw, 1.35rem);
+      font-weight: 650;
+    }
+
+    .hero .intro {
+      max-width: 750px;
+      margin: 0;
+      color: #edf6ff;
+      font-size: 1.03rem;
+    }
+
+    .hero-features {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      padding: 22px;
+      border: 1px solid rgba(255, 255, 255, .5);
+      border-radius: var(--radius);
+      background: rgba(255, 255, 255, .91);
+      color: var(--text);
+      box-shadow: var(--shadow);
+    }
+
+    .feature {
+      display: flex;
+      gap: 11px;
+      align-items: center;
+      padding: 5px;
+    }
+
+    .feature-icon {
+      display: grid;
+      place-items: center;
+      width: 43px;
+      height: 43px;
+      flex-shrink: 0;
+      border-radius: 12px;
+      color: white;
+      background: var(--blue);
+      font-size: 1.25rem;
+    }
+
+    .feature strong, .feature span { display: block; }
+    .feature strong { font-size: .94rem; }
+    .feature span:last-child { color: var(--muted); font-size: .78rem; }
+
+    .main-grid {
+      position: relative;
+      max-width: 1440px;
+      margin: -34px auto 0;
+      padding: 0 4% 34px;
+      display: grid;
+      grid-template-columns: 1.05fr .95fr;
+      gap: 18px;
+      align-items: start;
+    }
+
+    .column {
+      display: grid;
+      gap: 18px;
+      min-width: 0;
+    }
+
+    .card {
+      min-width: 0;
+      padding: 24px;
+      border: 1px solid rgba(216, 227, 240, .9);
+      border-radius: var(--radius);
+      background: var(--surface);
+      box-shadow: var(--shadow);
+    }
+
+    .card-heading {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 0 0 7px;
+      color: var(--navy);
+      font-size: 1.35rem;
+      letter-spacing: -.025em;
+    }
+
+    .heading-icon {
+      display: grid;
+      place-items: center;
+      width: 38px;
+      height: 38px;
+      flex-shrink: 0;
+      border-radius: 11px;
+      background: #e8f2ff;
+      color: var(--blue);
+      font-size: 1.15rem;
+    }
+
+    .card-description {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: .91rem;
+    }
+
+    .form-group { margin-bottom: 16px; }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 7px;
+      font-size: .92rem;
+      font-weight: 700;
+    }
+
+    input, textarea, button {
+      width: 100%;
+      font: inherit;
+    }
+
+    input, textarea {
+      padding: 13px 14px;
+      border: 1px solid #cbd7e6;
+      border-radius: 10px;
+      color: var(--text);
+      background: #fff;
+      outline: none;
+      transition: border-color .2s, box-shadow .2s;
+    }
+
+    textarea { min-height: 112px; resize: vertical; }
+
+    input:focus, textarea:focus {
+      border-color: var(--blue);
+      box-shadow: 0 0 0 3px rgba(22, 116, 223, .13);
+    }
+
+    .primary-button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 9px;
+      padding: 13px 18px;
+      border: 0;
+      border-radius: 10px;
+      background: linear-gradient(100deg, var(--blue), #0e61c7);
+      color: white;
+      font-weight: 750;
+      cursor: pointer;
+      transition: transform .15s, opacity .15s;
+    }
+
+    .primary-button:hover { transform: translateY(-1px); }
+    .primary-button:disabled { opacity: .65; cursor: wait; transform: none; }
+
+    .status {
+      min-height: 0;
+      margin: 13px 0 0;
+      padding: 0;
+      font-size: .9rem;
+      overflow-wrap: anywhere;
+    }
+
+    .status:not(:empty) {
+      padding: 11px 13px;
+      border-radius: 9px;
+      background: #f1f5f9;
+      color: #334155;
+    }
+
+    .status.success { background: #e1f7e9; color: #176b35; }
+    .status.error { background: #fff0f0; color: #a52121; }
+    .status.info { background: #eaf3ff; color: #174f92; }
+
+    .message-list {
+      display: grid;
+      gap: 10px;
+      margin: 0;
+      padding: 0;
+      list-style: none;
+    }
+
+    .message-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 13px;
+      padding: 14px;
+      border: 1px solid #e0e7f0;
+      border-radius: 12px;
+      background: linear-gradient(110deg, #f8fafc, #fff);
+      overflow-wrap: anywhere;
+    }
+
+    .avatar {
+      display: grid;
+      place-items: center;
+      width: 42px;
+      height: 42px;
+      flex-shrink: 0;
+      border-radius: 50%;
+      background: #dceaff;
+      color: #145fc0;
+      font-size: 1.15rem;
+      font-weight: 800;
+    }
+
+    .message-content { min-width: 0; flex: 1; }
+    .message-content strong { display: block; color: var(--navy); }
+    .message-content p { margin: 5px 0 0; white-space: pre-wrap; }
+    .message-empty { padding: 16px 0; color: var(--muted); }
+
+    .architecture-intro {
+      margin: 0 0 17px;
+      color: var(--muted);
+      font-size: .91rem;
+    }
+
+    .architecture {
+      padding: 15px;
+      border: 1px solid #dbe5f0;
+      border-radius: 12px;
+      background: #f8fbff;
+    }
+
+    .architecture-title {
+      margin: 0 0 13px;
+      color: #c45b0b;
+      font-size: .92rem;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .arch-flow {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      align-items: stretch;
+      gap: 10px;
+    }
+
+    .arch-node {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 7px;
+      min-width: 0;
+      min-height: 115px;
+      padding: 12px 8px;
+      border: 1px solid #d6e2f0;
+      border-radius: 12px;
+      background: white;
+      text-align: center;
+    }
+
+    .arch-node .node-icon { font-size: 1.8rem; }
+    .arch-node strong { font-size: .83rem; line-height: 1.3; }
+    .arch-node small { color: var(--muted); font-size: .75rem; line-height: 1.4; }
+
+    .arch-node.edge { border-color: #b8d4ff; background: #edf5ff; }
+    .arch-node.compute { border-color: #83d5a2; background: #edfbf2; }
+    .arch-node.database { border-color: #9fc7ff; background: #edf5ff; }
+    .arch-node.network { border-color: #ffc48b; background: #fff5e9; }
+
+    .arch-arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 7px;
+      padding: 7px 0;
+      color: #59708e;
+      font-size: .79rem;
+      font-weight: 750;
+      text-align: center;
+    }
+
+    .subnet-box {
+      padding: 12px;
+      border: 1px dashed #d4a06e;
+      border-radius: 12px;
+      background: #fffaf4;
+    }
+
+    .subnet-label {
+      margin: 0 0 10px;
+      color: #a94f0b;
+      font-size: .79rem;
+      font-weight: 800;
+      text-align: center;
+    }
+
+    .subnet-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .igw {
+      margin-top: 13px;
+      padding: 10px;
+      border-radius: 10px;
+      background: #eee8ff;
+      color: #5431a5;
+      text-align: center;
+      font-size: .84rem;
+      font-weight: 800;
+    }
+
+    .network-note {
+      margin: 12px 0 0;
+      color: var(--muted);
+      font-size: .78rem;
+    }
+
+    .services-grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .service {
+      padding: 15px 10px;
+      border-radius: 12px;
+      background: #f0f6ff;
+      text-align: center;
+    }
+
+    .service:nth-child(2) { background: #eef9f0; }
+    .service:nth-child(3) { background: #f2efff; }
+    .service:nth-child(4) { background: #fff4e8; }
+    .service:nth-child(5) { background: #edf5ff; }
+
+    .service .service-icon { font-size: 1.7rem; }
+    .service strong { display: block; margin: 5px 0 3px; font-size: .86rem; }
+    .service p { margin: 0; color: var(--muted); font-size: .77rem; }
+
+    .about-copy { margin: 0; color: var(--muted); font-size: .93rem; }
+
+    .site-footer {
+      padding: 22px 5%;
+      background: #08264b;
+      color: #e7f1ff;
+    }
+
+    .footer-inner {
+      max-width: 1320px;
+      margin: auto;
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px 24px;
+      font-size: .86rem;
+    }
+
+    .footer-muted { color: #b8cce5; }
+
+    @media (max-width: 980px) {
+      .hero-inner { grid-template-columns: 1fr; }
+      .hero-features { max-width: 700px; }
+      .main-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 600px) {
+      .header-inner { align-items: flex-start; flex-direction: column; }
+      .student-badge { align-self: flex-start; }
+      .brand-cloud { font-size: 32px; }
+      .nav { justify-content: flex-start; }
+      .nav a { padding: 12px; }
+      .hero { padding: 38px 5% 55px; }
+      .hero-features { grid-template-columns: 1fr 1fr; padding: 13px; }
+      .main-grid { padding: 0 4% 24px; }
+      .card { padding: 18px; }
+      .arch-flow { grid-template-columns: 1fr; }
+      .arch-node { min-height: 85px; }
+      .arch-arrow { transform: none; }
+      .subnet-grid { grid-template-columns: 1fr; }
+      .services-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .footer-inner { flex-direction: column; align-items: flex-start; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      html { scroll-behavior: auto; }
+      *, *::before, *::after { transition: none !important; }
+    }
+  </style>
 </head>
+
 <body>
-  <!-- Replace both identity placeholders before publishing or submitting. -->
   <header class="site-header">
-    <p class="eyebrow">CloudFormation Lab</p>
-    <h1>PATRICK AFFADU <span aria-hidden="true">·</span> L00205569</h1>
-    <p class="subtitle">A static website delivered from Amazon S3 through Amazon CloudFront</p>
+    <div class="header-inner">
+      <div class="brand">
+        <span class="brand-cloud" aria-hidden="true">☁️</span>
+        <div>
+          <h1>Three-Tier Message Board</h1>
+          <p>A cloud application powered by AWS networking, compute, storage and database services.</p>
+        </div>
+      </div>
+      <div class="student-badge">🎓 Student ID: L00205569</div>
+    </div>
+
+    <nav class="nav" aria-label="Main navigation">
+      <a href="#home">⌂ &nbsp;Home</a>
+      <a href="#architecture">⌘ &nbsp;Architecture</a>
+      <a href="#messages">☏ &nbsp;Messages</a>
+      <a href="#services">◇ &nbsp;AWS Services</a>
+      <a href="#about">ⓘ &nbsp;About</a>
+    </nav>
   </header>
 
-  <!-- These sections explain the storage and delivery choices used by the lab. -->
-  <main>
-    <section class="card" aria-labelledby="about-heading">
-      <p class="eyebrow">Part A · Static site</p>
-      <h2 id="about-heading">Infrastructure as code</h2>
-      <p>This page is a static asset stored in an S3 bucket. CloudFront serves it to visitors while the bucket remains private.</p>
-      <a class="button" href="https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/Welcome.html" target="_blank" rel="noreferrer">Explore CloudFormation <span aria-hidden="true">↗</span></a>
-    </section>
+  <section class="hero" id="home">
+    <div class="hero-inner">
+      <div>
+        <h2>Welcome to the Three-Tier Message Board</h2>
+        <p class="lead">A modern cloud application built with AWS</p>
+        <p class="intro">
+          Share a message and see it stored in a MySQL database on Amazon RDS.
+          A Flask API running on Amazon EC2 handles requests, while Amazon S3
+          and CloudFront deliver the website to users.
+        </p>
+      </div>
 
-    <section class="grid" aria-label="Lab concepts">
-      <article class="card">
-        <span class="number" aria-hidden="true">01</span>
-        <h2>Object storage</h2>
-        <p>HTML, CSS, JavaScript, and error content are uploaded as objects to Amazon S3.</p>
-      </article>
-      <article class="card">
-        <span class="number" aria-hidden="true">02</span>
-        <h2>Content delivery</h2>
-        <p>Amazon CloudFront provides the public endpoint and reads from the protected origin.</p>
-      </article>
-      <article class="card">
-        <span class="number" aria-hidden="true">03</span>
-        <h2>Repeatable setup</h2>
-        <p>CloudFormation describes the infrastructure so it can be reviewed and recreated.</p>
-      </article>
-    </section>
+      <div class="hero-features" aria-label="Project highlights">
+        <div class="feature">
+          <span class="feature-icon">▤</span>
+          <div><strong>Reliable</strong><span>Managed cloud services</span></div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">◎</span>
+          <div><strong>Global delivery</strong><span>Amazon CloudFront</span></div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">♢</span>
+          <div><strong>Network isolation</strong><span>Custom Amazon VPC</span></div>
+        </div>
+        <div class="feature">
+          <span class="feature-icon">⚙</span>
+          <div><strong>Three-tier design</strong><span>Frontend, API and database</span></div>
+        </div>
+      </div>
+    </div>
+  </section>
 
-    <p class="status" id="status" role="status">Page loaded successfully.</p>
+  <main class="main-grid">
+    <div class="column">
+      <section class="card" id="share">
+        <h2 class="card-heading">
+          <span class="heading-icon" aria-hidden="true">✉</span>
+          Share a Message
+        </h2>
+        <p class="card-description">
+          Your message is sent to the Flask API and saved in the MySQL database.
+        </p>
+
+        <form id="message-form">
+          <div class="form-group">
+            <label for="name">👤 &nbsp;Your Name</label>
+            <input id="name" name="name" maxlength="100"
+                   autocomplete="name" required
+                   placeholder="Enter your name...">
+          </div>
+
+          <div class="form-group">
+            <label for="message">💬 &nbsp;Message</label>
+            <textarea id="message" name="message" maxlength="500"
+                      required placeholder="Enter your message..."></textarea>
+          </div>
+
+          <button class="primary-button" id="submit-button" type="submit">
+            <span aria-hidden="true">➤</span>
+            Save Message
+          </button>
+        </form>
+
+        <p id="status" class="status" role="status" aria-live="polite"></p>
+      </section>
+
+      <section class="card" id="messages">
+        <h2 class="card-heading">
+          <span class="heading-icon" aria-hidden="true">☷</span>
+          Recent Messages
+        </h2>
+        <p class="card-description">The latest messages retrieved from the database.</p>
+        <ul id="messages-list" class="message-list" aria-live="polite">
+          <li class="message-empty">Loading messages…</li>
+        </ul>
+      </section>
+    </div>
+
+    <div class="column">
+      <section class="card" id="architecture">
+        <h2 class="card-heading">
+          <span class="heading-icon" aria-hidden="true">⌘</span>
+          Application Architecture
+        </h2>
+        <p class="architecture-intro">
+          The application runs in a custom Amazon VPC with public and private subnets.
+        </p>
+
+        <div class="architecture">
+          <p class="architecture-title">☁ Amazon VPC — Networking Layer</p>
+
+          <div class="arch-flow">
+            <div class="arch-node edge">
+              <span class="node-icon" aria-hidden="true">🌐</span>
+              <strong>Users</strong>
+              <small>Web browser</small>
+            </div>
+            <div class="arch-node edge">
+              <span class="node-icon" aria-hidden="true">🌍</span>
+              <strong>CloudFront</strong>
+              <small>Content delivery</small>
+            </div>
+            <div class="arch-node edge">
+              <span class="node-icon" aria-hidden="true">🪣</span>
+              <strong>Amazon S3</strong>
+              <small>Static website</small>
+            </div>
+          </div>
+
+          <div class="arch-arrow" aria-label="Request routing">
+            Users → CloudFront → S3 for website files
+          </div>
+
+          <div class="subnet-box">
+            <p class="subnet-label">Amazon VPC: Application and database network</p>
+            <div class="subnet-grid">
+              <div class="arch-node compute">
+                <span class="node-icon" aria-hidden="true">🖥️</span>
+                <strong>Public Subnet</strong>
+                <small>Amazon EC2 · Flask API</small>
+              </div>
+              <div class="arch-node database">
+                <span class="node-icon" aria-hidden="true">🗄️</span>
+                <strong>Private Subnets A &amp; B</strong>
+                <small>Amazon RDS · MySQL</small>
+              </div>
+            </div>
+            <div class="arch-arrow">CloudFront /api requests → EC2 → RDS</div>
+          </div>
+
+          <div class="igw">⇅ &nbsp; Internet Gateway (VPC internet connectivity)</div>
+          <p class="network-note">
+            The RDS database is placed in private subnets. The Internet Gateway
+            provides a VPC route to the internet; it does not make private database
+            subnets directly public.
+          </p>
+        </div>
+      </section>
+
+      <section class="card" id="services">
+        <h2 class="card-heading">
+          <span class="heading-icon" aria-hidden="true">◇</span>
+          AWS Services Used
+        </h2>
+        <p class="card-description">The main services in this CloudFormation project.</p>
+
+        <div class="services-grid">
+          <div class="service">
+            <span class="service-icon" aria-hidden="true">☁️</span>
+            <strong>Amazon VPC</strong>
+            <p>Custom network and subnet layout</p>
+          </div>
+          <div class="service">
+            <span class="service-icon" aria-hidden="true">🪣</span>
+            <strong>Amazon S3</strong>
+            <p>Static frontend hosting</p>
+          </div>
+          <div class="service">
+            <span class="service-icon" aria-hidden="true">🌍</span>
+            <strong>CloudFront</strong>
+            <p>Website delivery and API routing</p>
+          </div>
+          <div class="service">
+            <span class="service-icon" aria-hidden="true">🖥️</span>
+            <strong>Amazon EC2</strong>
+            <p>Runs the Flask API</p>
+          </div>
+          <div class="service">
+            <span class="service-icon" aria-hidden="true">🗄️</span>
+            <strong>Amazon RDS</strong>
+            <p>MySQL database in private subnets</p>
+          </div>
+          <div class="service">
+            <span class="service-icon" aria-hidden="true">🔐</span>
+            <strong>Systems Manager</strong>
+            <p>Managed instance access without SSH</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="card" id="about">
+        <h2 class="card-heading">
+          <span class="heading-icon" aria-hidden="true">ⓘ</span>
+          About This Project
+        </h2>
+        <p class="about-copy">
+          This student project demonstrates a modular AWS CloudFormation deployment,
+          with networking, application compute, managed database storage and a static
+          website delivered through CloudFront.
+        </p>
+      </section>
+    </div>
   </main>
 
-  <!-- Keep the reminder visible while the page is still a personal draft. -->
-  <footer><p>Student lab sample · Update the name and L-number before submission.</p></footer>
+  <footer class="site-footer">
+    <div class="footer-inner">
+      <div>🎓 &nbsp;Student ID: <strong>L00205569</strong></div>
+      <div>Project: <strong>Three-Tier Message Board</strong></div>
+      <div class="footer-muted">AWS · Region: eu-west-1 · CloudFormation</div>
+    </div>
+  </footer>
+
+  <script src="config.js"></script>
+  <script src="app.js"></script>
 </body>
 </html>
+

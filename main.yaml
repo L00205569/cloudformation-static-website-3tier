@@ -1,0 +1,110 @@
+
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Root stack that deploys the modular three-tier classroom application.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: student-three-tier
+    AllowedPattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
+    MinLength: 3
+    MaxLength: 32
+    Description: Name prefix used for the classroom application.
+
+  DBPasswordParameterName:
+    Type: String
+    Default: /cloudformation-lab/3-tier-app/database/master-password
+    Description: Existing SSM SecureString parameter containing the RDS master password.
+
+  LatestAmiId:
+    Type: String
+    Default: /aws/service/ami-amazon-linux-latest/al2023-ami-kernel-default-x86_64
+    Description: SSM public parameter path for the Amazon Linux 2023 AMI.
+
+  TemplateBucket:
+    Type: String
+    Description: S3 bucket containing the nested CloudFormation templates.
+
+  TemplatePrefix:
+    Type: String
+    Default: cloudformation
+    Description: S3 key prefix containing the nested templates.
+
+Resources:
+  NetworkStack:
+    Type: AWS::CloudFormation::Stack
+    Properties:
+      TemplateURL: !Sub 'https://${TemplateBucket}.s3.${AWS::Region}.${AWS::URLSuffix}/${TemplatePrefix}/infra/network.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+
+  SecurityStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: NetworkStack
+    Properties:
+      TemplateURL: !Sub 'https://${TemplateBucket}.s3.${AWS::Region}.${AWS::URLSuffix}/${TemplatePrefix}/infra/security.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        VpcId: !GetAtt NetworkStack.Outputs.VpcId
+
+  DatabaseStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: SecurityStack
+    Properties:
+      TemplateURL: !Sub 'https://${TemplateBucket}.s3.${AWS::Region}.${AWS::URLSuffix}/${TemplatePrefix}/infra/database.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        PrivateSubnetAId: !GetAtt NetworkStack.Outputs.PrivateSubnetAId
+        PrivateSubnetBId: !GetAtt NetworkStack.Outputs.PrivateSubnetBId
+        DatabaseSecurityGroupId: !GetAtt SecurityStack.Outputs.DatabaseSecurityGroupId
+        DBUsername: appadmin
+        DBInstanceClass: db.t3.micro
+        DBPasswordParameterName: !Ref DBPasswordParameterName
+
+  ComputeStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: DatabaseStack
+    Properties:
+      TemplateURL: !Sub 'https://${TemplateBucket}.s3.${AWS::Region}.${AWS::URLSuffix}/${TemplatePrefix}/infra/compute.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        LatestAmiId: !Ref LatestAmiId
+        PublicSubnetId: !GetAtt NetworkStack.Outputs.PublicSubnetAId
+        ApiSecurityGroupId: !GetAtt SecurityStack.Outputs.ApiSecurityGroupId
+        DatabaseEndpoint: !GetAtt DatabaseStack.Outputs.DatabaseEndpoint
+        DBPasswordParameterName: !Ref DBPasswordParameterName
+
+  WebsiteStack:
+    Type: AWS::CloudFormation::Stack
+    DependsOn: ComputeStack
+    Properties:
+      TemplateURL: !Sub 'https://${TemplateBucket}.s3.${AWS::Region}.${AWS::URLSuffix}/${TemplatePrefix}/infra/s3-website.yaml'
+      Parameters:
+        ProjectName: !Ref ProjectName
+        ApiOriginDnsName: !GetAtt ComputeStack.Outputs.ApiOriginDnsName
+
+Outputs:
+  WebsiteURL:
+    Description: Public HTTPS URL for the static frontend.
+    Value: !GetAtt WebsiteStack.Outputs.WebsiteURL
+
+  WebsiteBucketName:
+    Description: S3 bucket hosting the frontend assets.
+    Value: !GetAtt WebsiteStack.Outputs.WebsiteBucketName
+
+  DistributionId:
+    Description: CloudFront distribution ID for cache invalidation.
+    Value: !GetAtt WebsiteStack.Outputs.DistributionId
+
+  ApiInstanceId:
+    Description: EC2 instance ID for AWS Systems Manager Session Manager.
+    Value: !GetAtt ComputeStack.Outputs.ApiInstanceId
+
+  ApiURL:
+    Description: Direct lab API URL. The browser frontend uses CloudFront /api routing.
+    Value: !GetAtt ComputeStack.Outputs.ApiURL
+
+  DatabaseEndpoint:
+    Description: Database endpoint created by the nested database stack.
+    Value: !GetAtt DatabaseStack.Outputs.DatabaseEndpoint
+

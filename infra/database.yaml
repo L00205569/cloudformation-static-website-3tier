@@ -1,0 +1,73 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Private RDS MySQL database layer.
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: student-three-tier
+
+  PrivateSubnetAId:
+    Type: AWS::EC2::Subnet::Id
+
+  PrivateSubnetBId:
+    Type: AWS::EC2::Subnet::Id
+
+  DatabaseSecurityGroupId:
+    Type: AWS::EC2::SecurityGroup::Id
+
+  DBUsername:
+    Type: String
+    Default: appadmin
+
+  DBInstanceClass:
+    Type: String
+    Default: db.t3.micro
+    AllowedValues:
+      - db.t3.micro
+      - db.t3.small
+
+  DBPasswordParameterName:
+    Type: String
+    Description: Name of the SSM SecureString parameter containing the database password.
+
+Resources:
+  DBSubnetGroup:
+    Type: AWS::RDS::DBSubnetGroup
+    Properties:
+      DBSubnetGroupDescription: Private subnets for the classroom database.
+      SubnetIds:
+        - !Ref PrivateSubnetAId
+        - !Ref PrivateSubnetBId
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-database-subnets'
+
+  Database:
+    Type: AWS::RDS::DBInstance
+    DeletionPolicy: Delete
+    UpdateReplacePolicy: Delete
+    Properties:
+      Engine: mysql
+      DBInstanceClass: !Ref DBInstanceClass
+      AllocatedStorage: 20
+      StorageType: gp3
+      StorageEncrypted: true
+      MultiAZ: false
+      PubliclyAccessible: false
+      DBName: labdb
+      MasterUsername: !Ref DBUsername
+      MasterUserPassword:
+        Fn::Sub: '{{resolve:ssm-secure:${DBPasswordParameterName}}}'
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      VPCSecurityGroups:
+        - !Ref DatabaseSecurityGroupId
+      BackupRetentionPeriod: 0
+      DeletionProtection: false
+      Tags:
+        - Key: Name
+          Value: !Sub '${ProjectName}-database'
+
+Outputs:
+  DatabaseEndpoint:
+    Description: Private DNS endpoint of the RDS database.
+    Value: !GetAtt Database.Endpoint.Address
