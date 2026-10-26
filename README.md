@@ -195,14 +195,14 @@ The deployment script checks the templates, CloudFormation deployment, EC2 readi
 
 Manual testing should also confirm that submitting a message stores it in the database and that it remains available after refreshing the page.
 
-Record the actual results and include screenshots or command output where useful.
+The result below records the actual results after deploy.sh was executed successfully today, 26 October, 2026.
 
 | Test | Result |
 |---|---|
-| Template validation | [Pass/Fail] |
-| CloudFormation deployment | [Pass/Fail] |
-| Website availability | [Pass/Fail] |
-| API and database integration | [Pass/Fail] |
+| Template validation | [Pass] |
+| CloudFormation deployment | [Pass] |
+| Website availability | [Pass] |
+| API and database integration | [Pass] |
 
 ## 11. ### Deployment Issues and Fixes
 
