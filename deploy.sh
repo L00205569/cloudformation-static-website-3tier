@@ -1,4 +1,3 @@
-
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
@@ -58,7 +57,7 @@ wait_for_url() {
 # --------------------------------------------------
 log "Checking local tools and AWS credentials..."
 
-for cmd in aws curl; do
+for cmd in aws curl python3; do
   command -v "$cmd" >/dev/null 2>&1 || {
     echo "ERROR: Required command is missing: $cmd"
     exit 1
@@ -110,25 +109,41 @@ for file in \
 done
 
 # --------------------------------------------------
-# Protect the existing stack
+# Check existing CloudFormation stack
 # --------------------------------------------------
 log "Checking existing CloudFormation stack..."
 
-STACK_STATUS="$(
-  aws cloudformation describe-stacks \
-    --stack-name "$STACK_NAME" \
-    --region "$AWS_REGION" \
-    --query 'Stacks[0].StackStatus' \
-    --output text
-)"
+if STACK_STATUS=$(aws cloudformation describe-stacks \
+  --stack-name "$STACK_NAME" \
+  --region "$AWS_REGION" \
+  --query 'Stacks[0].StackStatus' \
+  --output text 2>&1); then
+  echo "Existing stack status: $STACK_STATUS"
+else
+  DESCRIBE_ERROR="$STACK_STATUS"
+
+  if grep -Eqi \
+    'ValidationError.*Stack with id .* does not exist|Stack with id .* does not exist' \
+    <<< "$DESCRIBE_ERROR"; then
+    STACK_STATUS="NOT_FOUND"
+    echo "No existing stack found. A fresh deployment will create it."
+  else
+    echo "ERROR: Unable to determine CloudFormation stack status."
+    printf '%s\n' "$DESCRIBE_ERROR"
+    exit 1
+  fi
+fi
 
 case "$STACK_STATUS" in
+  NOT_FOUND)
+    echo "Proceeding with fresh stack creation."
+    ;;
   CREATE_COMPLETE|UPDATE_COMPLETE|UPDATE_ROLLBACK_COMPLETE)
-    echo "Existing stack status: $STACK_STATUS"
+    echo "Existing stack is in a supported state: $STACK_STATUS"
     ;;
   *)
     echo "ERROR: Stack is not in a supported state: $STACK_STATUS"
-    echo "No resources have been deliberately deleted by this script."
+    echo "Resolve the stack state before deploying."
     exit 1
     ;;
 esac
@@ -146,7 +161,7 @@ aws s3 cp infra/ \
   --region "$AWS_REGION"
 
 # --------------------------------------------------
-# Deploy the existing root stack
+# Deploy the root stack (creates it if absent, updates if present)
 # --------------------------------------------------
 log "Deploying stack: $STACK_NAME"
 
@@ -159,13 +174,11 @@ aws cloudformation deploy \
   --capabilities CAPABILITY_IAM CAPABILITY_NAMED_IAM \
   --region "$AWS_REGION"
 
-STACK_STATUS="$(
-  aws cloudformation describe-stacks \
-    --stack-name "$STACK_NAME" \
-    --region "$AWS_REGION" \
-    --query 'Stacks[0].StackStatus' \
-    --output text
-)"
+STACK_STATUS="$(aws cloudformation describe-stacks \
+  --stack-name "$STACK_NAME" \
+  --region "$AWS_REGION" \
+  --query 'Stacks[0].StackStatus' \
+  --output text)"
 
 [[ "$STACK_STATUS" == "CREATE_COMPLETE" ||
    "$STACK_STATUS" == "UPDATE_COMPLETE" ]] || {
@@ -218,13 +231,11 @@ log "Waiting for EC2 instance to become available in Systems Manager..."
 SSM_ONLINE=""
 
 for ((attempt = 1; attempt <= MAX_ATTEMPTS; attempt++)); do
-  SSM_ONLINE="$(
-    aws ssm describe-instance-information \
-      --region "$AWS_REGION" \
-      --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
-      --query "InstanceInformationList[?PingStatus=='Online'].InstanceId | [0]" \
-      --output text
-  )"
+  SSM_ONLINE="$(aws ssm describe-instance-information \
+    --region "$AWS_REGION" \
+    --filters "Key=InstanceIds,Values=$INSTANCE_ID" \
+    --query "InstanceInformationList[?PingStatus=='Online'].InstanceId | [0]" \
+    --output text)"
 
   if [[ "$SSM_ONLINE" == "$INSTANCE_ID" ]]; then
     break
@@ -245,24 +256,22 @@ done
 # --------------------------------------------------
 log "Ensuring API dependencies are installed on EC2..."
 
-COMMAND_ID="$(
-  aws ssm send-command \
-    --instance-ids "$INSTANCE_ID" \
-    --document-name "AWS-RunShellScript" \
-    --comment "Ensure three-tier API dependencies and service are ready" \
-    --parameters '{
-      "commands": [
-        "set -eu",
-        "/opt/three-tier/venv/bin/pip install cryptography==44.0.3",
-        "systemctl restart three-tier",
-        "systemctl is-active --quiet three-tier",
-        "/opt/three-tier/venv/bin/python -c \"import cryptography, pymysql, flask; print(\\\"Required Python packages are installed\\\")\""
-      ]
-    }' \
-    --region "$AWS_REGION" \
-    --query 'Command.CommandId' \
-    --output text
-)"
+COMMAND_ID="$(aws ssm send-command \
+  --instance-ids "$INSTANCE_ID" \
+  --document-name "AWS-RunShellScript" \
+  --comment "Ensure three-tier API dependencies and service are ready" \
+  --parameters '{
+    "commands": [
+      "set -eu",
+      "/opt/three-tier/venv/bin/pip install cryptography==44.0.3",
+      "systemctl restart three-tier",
+      "systemctl is-active --quiet three-tier",
+      "/opt/three-tier/venv/bin/python -c \"import cryptography, pymysql, flask; print(\\\"Required Python packages are installed\\\")\""
+    ]
+  }' \
+  --region "$AWS_REGION" \
+  --query 'Command.CommandId' \
+  --output text)"
 
 log "Waiting for the EC2 setup command to complete..."
 
@@ -292,13 +301,11 @@ aws ssm get-command-invocation \
 # --------------------------------------------------
 log "Creating CloudFront invalidation..."
 
-INVALIDATION_ID="$(
-  aws cloudfront create-invalidation \
-    --distribution-id "$DISTRIBUTION_ID" \
-    --paths "/*" \
-    --query 'Invalidation.Id' \
-    --output text
-)"
+INVALIDATION_ID="$(aws cloudfront create-invalidation \
+  --distribution-id "$DISTRIBUTION_ID" \
+  --paths "/*" \
+  --query 'Invalidation.Id' \
+  --output text)"
 
 log "Waiting for CloudFront invalidation: $INVALIDATION_ID"
 
@@ -366,4 +373,3 @@ echo
 echo "Connect to EC2 without SSH:"
 echo "aws ssm start-session --target $INSTANCE_ID --region $AWS_REGION"
 echo
-
