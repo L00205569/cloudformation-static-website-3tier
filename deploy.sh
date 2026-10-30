@@ -4,7 +4,7 @@ set -Eeuo pipefail
 # --------------------------------------------------
 # Configuration
 # --------------------------------------------------
-STACK_NAME="student-three-tier"
+STACK_NAME="my-three-tier-app"
 AWS_REGION="eu-west-1"
 TEMPLATE_BUCKET="cf-3-tier-app-bucket-112334179285-eu-west-1-an"
 TEMPLATE_PREFIX="cloudformation-$(date -u +%Y%m%d%H%M%S)"
