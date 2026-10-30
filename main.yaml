@@ -5,16 +5,16 @@ Description: Root stack that deploys the modular three-tier classroom applicatio
 Parameters:
   ProjectName:
     Type: String
-    Default: student-three-tier
+    Default: my-three-tier-app
     AllowedPattern: '^[a-z0-9][a-z0-9-]*[a-z0-9]$'
     MinLength: 3
     MaxLength: 32
     Description: Name prefix used for the classroom application.
 
-  DBPasswordParameterName:
+  DBPasswordSecretName:
     Type: String
-    Default: /cloudformation-lab/3-tier-app/database/master-password
-    Description: Existing SSM SecureString parameter containing the RDS master password.
+    Default: cloudformation-lab/3-tier-app/database/master-password
+    Description: Name of the Secrets Manager secret containing the RDS master password.
 
   LatestAmiId:
     Type: String
@@ -59,7 +59,7 @@ Resources:
         DatabaseSecurityGroupId: !GetAtt SecurityStack.Outputs.DatabaseSecurityGroupId
         DBUsername: appadmin
         DBInstanceClass: db.t3.micro
-        DBPasswordParameterName: !Ref DBPasswordParameterName
+        DBPasswordSecretName: !Ref DBPasswordSecretName
 
   ComputeStack:
     Type: AWS::CloudFormation::Stack
@@ -72,7 +72,7 @@ Resources:
         PublicSubnetId: !GetAtt NetworkStack.Outputs.PublicSubnetAId
         ApiSecurityGroupId: !GetAtt SecurityStack.Outputs.ApiSecurityGroupId
         DatabaseEndpoint: !GetAtt DatabaseStack.Outputs.DatabaseEndpoint
-        DBPasswordParameterName: !Ref DBPasswordParameterName
+        DBPasswordSecretName: !Ref DBPasswordSecretName
 
   WebsiteStack:
     Type: AWS::CloudFormation::Stack
