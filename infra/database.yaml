@@ -26,9 +26,9 @@ Parameters:
       - db.t3.micro
       - db.t3.small
 
-  DBPasswordParameterName:
+  DBPasswordSecretName:
     Type: String
-    Description: Name of the SSM SecureString parameter containing the database password.
+    Description: Name of the Secrets Manager secret containing the database password.
 
 Resources:
   DBSubnetGroup:
@@ -57,7 +57,7 @@ Resources:
       DBName: labdb
       MasterUsername: !Ref DBUsername
       MasterUserPassword:
-        Fn::Sub: '{{resolve:ssm-secure:${DBPasswordParameterName}}}'
+        Fn::Sub: '{{resolve:secretsmanager:${DBPasswordSecretName}:SecretString}}'
       DBSubnetGroupName: !Ref DBSubnetGroup
       VPCSecurityGroups:
         - !Ref DatabaseSecurityGroupId
